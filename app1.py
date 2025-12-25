@@ -30,7 +30,7 @@ GAME_DURATION = 300
 
 FEMALE_NAMES = ["Khánh An", "Bảo Hân", "Lam Ngọc", "Phương Quỳnh", "Phương Nguyên", "Minh Thư"]
 
-st.set_page_config(page_title="N.P.L.M Classified", page_icon="🕵️", layout="centered")
+st.set_page_config(page_title="N.P.L.M Classified", page_icon="😎", layout="centered")
 
 # --- TRẠNG THÁI SERVER ---
 class SharedGameState:
@@ -45,7 +45,7 @@ def get_shared_state():
 shared_state = get_shared_state()
 
 # ==============================================================================
-# 2. UTILS & LOGIC (AUTO-FIX LOGS)
+# 2. UTILS & LOGIC
 # ==============================================================================
 
 def init_log_system():
@@ -114,7 +114,7 @@ def load_data(filepath):
         return []
 
 # ==============================================================================
-# 3. GIAO DIỆN TERMINAL (CLEAN CSS - NO EXTERNAL FONTS)
+# 3. GIAO DIỆN TERMINAL (CLEAN CSS)
 # ==============================================================================
 st.markdown("""
 <style>
@@ -235,9 +235,9 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
                         
                         if not has_lost: log_activity(selected_user['user_name'], "LOGIN_SUCCESS")
                         
-                        # --- WELCOME MESSAGE WITH EMOJIS ---
+                        # --- WELCOME MESSAGE (DÙNG EMOJI CƯỜI) ---
                         welcome_msg = f"""
-                        ✅ **XÁC THỰC THÀNH CÔNG.**
+                        😎 **XÁC THỰC THÀNH CÔNG.**
                         
                         Xin chào điệp viên: **{selected_user['user_name']}**.
                         Dữ liệu mục tiêu đã được tải xuống bộ nhớ đệm.
@@ -291,7 +291,6 @@ if st.session_state.is_admin:
         st.session_state.is_admin = False
         st.rerun()
 
-    # VIEW LOGS
     if os.path.exists(LOG_FILE_PATH):
         with st.expander("ACCESS SYSTEM LOGS"):
             try:
@@ -299,7 +298,6 @@ if st.session_state.is_admin:
                 if "TIMESTAMP" in df_log.columns:
                     st.dataframe(df_log.sort_values(by="TIMESTAMP", ascending=False), use_container_width=True)
                 else:
-                    st.warning("Old log format detected.")
                     st.dataframe(df_log, use_container_width=True)
             except Exception as e:
                 st.error(f"Log Read Error: {e}")
@@ -316,7 +314,6 @@ if st.session_state.is_admin:
 user = st.session_state.user_info
 is_vip = user['user_id'] in ADMIN_IDS
 
-# Check Timeout
 if shared_state.status == "RUNNING":
     if time.time() > shared_state.end_timestamp:
         if not is_vip:
@@ -340,18 +337,12 @@ q_left = max(0, MAX_QUESTIONS - st.session_state.question_count)
 l_left = MAX_LIVES - st.session_state.wrong_guesses
 end_ts_js = shared_state.end_timestamp
 
-# Sử dụng thuần Emoji trong HTML, không cần load font
 dashboard_html = f"""
 <style>
     body {{ margin: 0; font-family: 'Fira Code', monospace; }}
     .hud-container {{
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        background-color: #000; 
-        border: 1px solid #33FF33; 
-        padding: 10px; 
-        color: #33FF33;
+        display: flex; justify-content: space-between; align-items: center; 
+        background-color: #000; border: 1px solid #33FF33; padding: 10px; color: #33FF33;
     }}
     .stat-box {{ text-align: center; width: 30%; }}
     .label {{ color: #00AA00; font-size: 10px; margin-bottom: 5px; }}
@@ -381,13 +372,7 @@ dashboard_html = f"""
         var now = Date.now() / 1000;
         var diff = endTs - now;
         var el = document.getElementById("countdown_timer");
-        
-        if (diff <= 0) {{
-            el.innerHTML = "⚠️ 00:00";
-            el.style.color = "red";
-            return;
-        }}
-        
+        if (diff <= 0) {{ el.innerHTML = "⚠️ 00:00"; el.style.color = "red"; return; }}
         var m = Math.floor(diff / 60);
         var s = Math.floor(diff % 60);
         var display = (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
@@ -414,8 +399,13 @@ with st.sidebar:
 
 # CHAT HISTORY
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"], unsafe_allow_html=True)
+    # --- THAY ĐỔI Ở ĐÂY: NẾU LÀ ASSISTANT THÌ DÙNG AVATAR MẶT CƯỜI ---
+    if msg["role"] == "assistant":
+        with st.chat_message(msg["role"], avatar="😎"):
+            st.markdown(msg["content"], unsafe_allow_html=True)
+    else:
+        with st.chat_message(msg["role"], avatar="👤"):
+            st.markdown(msg["content"], unsafe_allow_html=True)
 
 # CHECK END
 if st.session_state.game_status == "LOST":
@@ -432,7 +422,7 @@ if st.session_state.game_status == "WON":
 # INPUT AREA
 if prompt := st.chat_input("Enter query command..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
+    with st.chat_message("user", avatar="👤"): st.markdown(prompt)
 
     try:
         client = Groq(api_key=FIXED_GROQ_API_KEY)
@@ -455,7 +445,8 @@ if prompt := st.chat_input("Enter query command..."):
         messages_payload = [{"role": "system", "content": system_instruction}]
         for m in st.session_state.messages[-6:]: messages_payload.append({"role": m["role"], "content": m["content"]})
 
-        with st.chat_message("assistant"):
+        # --- THAY ĐỔI Ở ĐÂY: AVATAR KHI ĐANG TRẢ LỜI ---
+        with st.chat_message("assistant", avatar="😎"):
             container = st.empty()
             full_res = ""
             stream = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages_payload, stream=True)
