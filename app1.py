@@ -14,20 +14,19 @@ import base64
 try:
     FIXED_GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 except:
-    # Thay API Key của bạn vào đây nếu chạy local
-    FIXED_GROQ_API_KEY = "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" 
+    # Thay API Key thật của bạn vào đây
+    FIXED_GROQ_API_KEY = "gsk_YOUR_API_KEY_HERE" 
 
 FIXED_CSV_PATH = "res.csv"
 LOG_FILE_PATH = "game_logs.csv"  
-BACKGROUND_IMAGE_NAME = "background.jpg" 
 
 # DANH SÁCH ĐIỆP VIÊN CẤP CAO (ADMIN)
 ADMIN_IDS = ["250231", "250218", "admin"] 
 
 # --- THÔNG SỐ NHIỆM VỤ ---
-MAX_QUESTIONS = 5   # Số lượt truy vấn
-MAX_LIVES = 3       # Số lần vi phạm an ninh (đoán sai)
-GAME_DURATION = 300 # Thời gian kết nối an toàn (5 phút)
+MAX_QUESTIONS = 5   
+MAX_LIVES = 3       
+GAME_DURATION = 300 
 
 FEMALE_NAMES = ["Khánh An", "Bảo Hân", "Lam Ngọc", "Phương Quỳnh", "Phương Nguyên", "Minh Thư"]
 
@@ -46,10 +45,9 @@ def get_shared_state():
 shared_state = get_shared_state()
 
 # ==============================================================================
-# 2. UTILS & LOGIC (ĐÃ FIX LỖI DATA)
+# 2. UTILS & LOGIC (AUTO-FIX LOGS)
 # ==============================================================================
 
-# --- HÀM MỚI: TỰ ĐỘNG KHỞI TẠO FILE LOG NẾU SAI FORMAT ---
 def init_log_system():
     header = ["TIMESTAMP", "AGENT", "ACTION"]
     reset_needed = False
@@ -57,7 +55,7 @@ def init_log_system():
     if os.path.exists(LOG_FILE_PATH):
         try:
             df = pd.read_csv(LOG_FILE_PATH)
-            # Nếu file cũ dùng tiếng Việt (Thời gian) -> Xóa tạo lại
+            # Nếu file log cũ không có cột TIMESTAMP -> Xóa tạo lại
             if "TIMESTAMP" not in df.columns:
                 reset_needed = True
         except:
@@ -69,28 +67,26 @@ def init_log_system():
         with open(LOG_FILE_PATH, mode='w', newline='', encoding='utf-8') as f:
             csv.writer(f).writerow(header)
 
-# Gọi hàm này ngay khi chạy app
+# Gọi hàm fix log ngay lập tức
 init_log_system()
 
 def log_activity(user_name, action):
     time_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # Đảm bảo file tồn tại trước khi ghi
     if not os.path.exists(LOG_FILE_PATH): init_log_system()
-    
-    with open(LOG_FILE_PATH, mode='a', newline='', encoding='utf-8') as f:
-        csv.writer(f).writerow([time_now, user_name, action])
+    try:
+        with open(LOG_FILE_PATH, mode='a', newline='', encoding='utf-8') as f:
+            csv.writer(f).writerow([time_now, user_name, action])
+    except: pass
 
 def check_if_lost(user_name):
     if not os.path.exists(LOG_FILE_PATH): return False
     try:
         df = pd.read_csv(LOG_FILE_PATH)
-        # Fix lỗi KeyError: Kiểm tra xem cột ACTION có tồn tại không
         if 'ACTION' in df.columns and 'AGENT' in df.columns:
             losers = df[df['ACTION'] == 'TERMINATED']['AGENT'].unique()
             return user_name in losers
         return False
-    except Exception: 
-        return False
+    except: return False
 
 def get_gender(name):
     for female in FEMALE_NAMES:
@@ -116,13 +112,14 @@ def load_data(filepath):
             })
         return profiles
     except Exception as e:
-        st.error(f"DATA CORRUPTION DETECTED: {e}")
+        st.error(f"DATABASE ERROR: {e}")
         return []
 
 # ==============================================================================
-# 3. GIAO DIỆN TERMINAL / SPY STYLE
+# 3. GIAO DIỆN TERMINAL (ĐÃ ADD MATERIAL ICONS)
 # ==============================================================================
 st.markdown("""
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
 
@@ -146,12 +143,19 @@ st.markdown("""
         font-family: 'Fira Code', monospace !important; 
         color: #33FF33 !important; 
     }
+
+    /* CHỈNH SIZE ICON CHO KHỚP VỚI TEXT */
+    .material-icons {
+        font-size: 24px;
+        vertical-align: bottom;
+    }
     
     .stTextInput input { 
         background-color: #001100 !important; 
         color: #33FF33 !important; 
         border: 1px solid #33FF33 !important;
         text-align: center;
+        font-family: 'Fira Code', monospace;
     }
     
     div.stButton > button {
@@ -159,6 +163,7 @@ st.markdown("""
         color: #33FF33 !important;
         border: 1px solid #33FF33 !important;
         font-weight: bold;
+        font-family: 'Fira Code', monospace;
     }
     div.stButton > button:hover {
         background-color: #33FF33 !important;
@@ -171,16 +176,15 @@ st.markdown("""
         border-left: 3px solid #33FF33;
         color: #33FF33 !important;
         padding: 10px;
+        font-family: 'Fira Code', monospace;
     }
     div[data-testid="assistant-message"] { 
         background-color: #000000 !important; 
         border: 1px dashed #33FF33;
         color: #33FF33 !important;
         padding: 10px;
+        font-family: 'Fira Code', monospace;
     }
-    
-    /* ICON FIX */
-    .material-icons { font-size: 16px !important; vertical-align: middle; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -198,7 +202,7 @@ if "game_status" not in st.session_state: st.session_state.game_status = "PLAYIN
 # 5. MÀN HÌNH ĐĂNG NHẬP
 # ==============================================================================
 if st.session_state.user_info is None and not st.session_state.is_admin:
-    st.title("🔒 CLASSIFIED ACCESS")
+    st.markdown("<h1 style='text-align:center;'><span class='material-icons'>lock</span> CLASSIFIED ACCESS</h1>", unsafe_allow_html=True)
     st.markdown("<div style='text-align: center; margin-bottom: 20px;'>PROJECT: SECRET SANTA PROTOCOL</div>", unsafe_allow_html=True)
     
     if shared_state.status == "WAITING":
@@ -211,8 +215,8 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
     profiles = load_data(FIXED_CSV_PATH)
 
     with st.form("auth_form"):
-        st.markdown("<label>ENTER AGENT ID OR CODENAME:</label>", unsafe_allow_html=True)
-        user_input = st.text_input("", placeholder="250231 or Name...") 
+        st.markdown("<label><span class='material-icons'>badge</span> ENTER AGENT ID OR CODENAME:</label>", unsafe_allow_html=True)
+        user_input = st.text_input("", placeholder="Example: 250231") 
         
         submitted = st.form_submit_button("AUTHENTICATE", type="primary")
 
@@ -240,7 +244,18 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
                         
                         if not has_lost: log_activity(selected_user['user_name'], "LOGIN_SUCCESS")
                         
-                        welcome_msg = f"✅ **XÁC THỰC THÀNH CÔNG.**\n\nXin chào điệp viên: **{selected_user['user_name']}**.\nDữ liệu mục tiêu đã được tải.\n\n⚠️ **QUY TẮC NHIỆM VỤ:**\n1. Bạn có **{MAX_QUESTIONS} truy vấn** (câu hỏi).\n2. Phạm vi sai số cho phép: **{MAX_LIVES} lần**.\n3. Thời gian kết nối an toàn: Theo dõi đồng hồ đếm ngược.\n\nNhập truy vấn để bắt đầu thu thập manh mối."
+                        # --- WELCOME MESSAGE ---
+                        welcome_msg = f"""
+                        <span class='material-icons'>verified</span> **XÁC THỰC THÀNH CÔNG.**
+                        
+                        Xin chào điệp viên: **{selected_user['user_name']}**.
+                        Dữ liệu mục tiêu đã được tải xuống bộ nhớ đệm.
+
+                        <span class='material-icons'>warning</span> **QUY TẮC NHIỆM VỤ:**
+                        1. Bạn có **{MAX_QUESTIONS} truy vấn** (câu hỏi).
+                        2. Phạm vi sai số cho phép: **{MAX_LIVES} lần**.
+                        3. Thời gian kết nối: Theo dõi đồng hồ đếm ngược.
+                        """
                         st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
                         st.rerun()
                 else:
@@ -251,11 +266,11 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
     st.stop()
 
 # ==============================================================================
-# 6. ADMIN CONTROL CENTER (ĐÃ FIX KEYERROR)
+# 6. ADMIN CONTROL CENTER
 # ==============================================================================
 if st.session_state.is_admin:
-    st.title("🛡️ COMMAND CENTER")
-    st.markdown(f"<div style='text-align: center'>CURRENT STATUS: <b>{shared_state.status}</b></div>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'><span class='material-icons'>admin_panel_settings</span> COMMAND CENTER</h1>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center'>STATUS: <b>{shared_state.status}</b></div>", unsafe_allow_html=True)
     st.divider()
     
     c1, c2, c3 = st.columns(3)
@@ -281,26 +296,26 @@ if st.session_state.is_admin:
         st.markdown(f"<h1 style='color: #FF0000 !important; text-align: center;'>T-MINUS: {m:02d}:{s:02d}</h1>", unsafe_allow_html=True)
 
     st.divider()
-    if st.button("⬅️ RETURN TO FIELD"):
+    if st.button("RETURN TO FIELD"):
         st.session_state.is_admin = False
         st.rerun()
 
-    # --- FIX HIỂN THỊ LOG ---
+    # VIEW LOGS
     if os.path.exists(LOG_FILE_PATH):
-        with st.expander(">> ACCESS SYSTEM LOGS"):
+        with st.expander("ACCESS SYSTEM LOGS"):
             try:
                 df_log = pd.read_csv(LOG_FILE_PATH)
                 if "TIMESTAMP" in df_log.columns:
                     st.dataframe(df_log.sort_values(by="TIMESTAMP", ascending=False), use_container_width=True)
                 else:
-                    st.warning("Old log format detected. Please Purge Logs.")
+                    st.warning("Old log format detected. Purging recommended.")
                     st.dataframe(df_log, use_container_width=True)
             except Exception as e:
                 st.error(f"Log Read Error: {e}")
 
         if st.button("PURGE LOGS"): 
             os.remove(LOG_FILE_PATH)
-            init_log_system() # Tạo lại file mới ngay lập tức
+            init_log_system()
             st.rerun()
     st.stop()
 
@@ -327,37 +342,53 @@ if not is_vip and shared_state.status != "RUNNING":
 
 target_gender = get_gender(user['santa_name'])
 
-st.title("🕵️ MISSION DASHBOARD")
+st.markdown("<h2 style='text-align:center;'><span class='material-icons'>dashboard</span> MISSION DASHBOARD</h2>", unsafe_allow_html=True)
 
-# --- SPY HUD ---
+# --- SPY HUD (FIXED ICONS) ---
 q_left = max(0, MAX_QUESTIONS - st.session_state.question_count)
 l_left = MAX_LIVES - st.session_state.wrong_guesses
 end_ts_js = shared_state.end_timestamp
 
+# Quan trọng: Thêm link CSS vào html của Dashboard để hiện icon
 dashboard_html = f"""
-<div style="
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    background-color: #000; 
-    border: 1px solid #33FF33; 
-    padding: 10px; 
-    margin-bottom: 20px;
-    font-family: 'Fira Code', monospace;
-">
-    <div style="text-align: center; width: 30%;">
-        <div style="color: #00AA00; font-size: 10px;">QUERIES</div>
-        <div style="color: #33FF33; font-size: 24px; font-weight: bold;">{q_left}<span style="font-size:12px">/{MAX_QUESTIONS}</span></div>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+    body {{ margin: 0; font-family: 'Fira Code', monospace; }}
+    .hud-container {{
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        background-color: #000; 
+        border: 1px solid #33FF33; 
+        padding: 10px; 
+        color: #33FF33;
+    }}
+    .stat-box {{ text-align: center; width: 30%; }}
+    .label {{ color: #00AA00; font-size: 10px; margin-bottom: 5px; }}
+    .value {{ font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; }}
+    .material-icons {{ font-size: 20px; }}
+</style>
+
+<div class="hud-container">
+    <div class="stat-box">
+        <div class="label">QUERIES</div>
+        <div class="value">
+            <span class="material-icons">help_outline</span> {q_left}<span style="font-size:12px">/{MAX_QUESTIONS}</span>
+        </div>
     </div>
     
-    <div style="text-align: center; width: 38%; border-left: 1px dashed #005500; border-right: 1px dashed #005500;">
-        <div style="color: #00AA00; font-size: 10px;">T-MINUS</div>
-        <div id="countdown_timer" style="color: #33FF33; font-size: 24px; font-weight: bold;">SYNC...</div>
+    <div class="stat-box" style="border-left: 1px dashed #005500; border-right: 1px dashed #005500; width: 40%;">
+        <div class="label">T-MINUS</div>
+        <div class="value" id="countdown_timer">
+            <span class="material-icons">timer</span> SYNC...
+        </div>
     </div>
 
-    <div style="text-align: center; width: 30%;">
-        <div style="color: #00AA00; font-size: 10px;">LIVES</div>
-        <div style="color: #FF0000; font-size: 24px; font-weight: bold;">{l_left}<span style="font-size:12px">/{MAX_LIVES}</span></div>
+    <div class="stat-box">
+        <div class="label">LIVES</div>
+        <div class="value" style="color: #FF0000;">
+            <span class="material-icons">favorite</span> {l_left}<span style="font-size:12px">/{MAX_LIVES}</span>
+        </div>
     </div>
 </div>
 
@@ -369,7 +400,7 @@ dashboard_html = f"""
         var el = document.getElementById("countdown_timer");
         
         if (diff <= 0) {{
-            el.innerHTML = "00:00";
+            el.innerHTML = "<span class='material-icons'>warning</span> 00:00";
             el.style.color = "red";
             return;
         }}
@@ -377,7 +408,7 @@ dashboard_html = f"""
         var m = Math.floor(diff / 60);
         var s = Math.floor(diff % 60);
         var display = (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
-        el.innerHTML = display;
+        el.innerHTML = "<span class='material-icons'>timer</span> " + display;
     }}
     setInterval(updateTimer, 1000);
     updateTimer();
@@ -387,7 +418,7 @@ components.html(dashboard_html, height=85)
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown(f"<div style='border: 1px solid #33FF33; padding: 10px; text-align: center;'>AGENT: {user['user_name']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='border: 1px solid #33FF33; padding: 10px; text-align: center;'><span class='material-icons'>face</span> AGENT: {user['user_name']}</div>", unsafe_allow_html=True)
     if user['user_id'] in ADMIN_IDS:
         st.write("")
         if st.button("⚙️ ADMIN PANEL"):
@@ -401,7 +432,7 @@ with st.sidebar:
 # CHAT HISTORY
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        st.markdown(msg["content"], unsafe_allow_html=True)
 
 # CHECK END
 if st.session_state.game_status == "LOST":
@@ -425,24 +456,17 @@ if prompt := st.chat_input("Enter query command..."):
         
         system_instruction = f"""
         BỐI CẢNH (BACKGROUND):
-        Bạn là NPLM (North Pole Logistics Mainframe) - Hệ thống Máy chủ Bắc Cực.
-        Bạn nắm giữ dữ liệu tuyệt mật về việc ai tặng quà cho ai. Tính cách: Máy móc, lạnh lùng, bảo mật cao, dùng từ ngữ chuyên ngành điệp viên/kỹ thuật.
-
-        DỮ LIỆU ĐANG XỬ LÝ:
-        - Điệp viên truy vấn (User): {user['user_name']}
-        - Mục tiêu bí ẩn (Santa): {user['santa_name']} (Giới tính: {target_gender}, MSHS: {user['santa_id']}).
+        Bạn là NPLM (North Pole Logistics Mainframe). 
+        User: {user['user_name']}. Target (Santa): {user['santa_name']} ({target_gender}, MSHS: {user['santa_id']}).
+        Stats: Hỏi {st.session_state.question_count}/{MAX_QUESTIONS}. Sai {st.session_state.wrong_guesses}/{MAX_LIVES}.
         
-        TRẠNG THÁI HIỆN TẠI:
-        - Số truy vấn đã dùng: {st.session_state.question_count}/{MAX_QUESTIONS}.
-        - Số lần vi phạm (đoán sai): {st.session_state.wrong_guesses}/{MAX_LIVES}.
-
         GIAO THỨC TRẢ LỜI:
         1. [[WIN]]: User đoán ĐÚNG CẢ HỌ VÀ TÊN.
         2. [[WRONG]]: User đoán tên SAI.
-        3. [[OK]]: User hỏi gợi ý. Nếu đã hỏi đủ {MAX_QUESTIONS} câu -> Từ chối, bắt đoán tên.
+        3. [[OK]]: User hỏi gợi ý. Nếu đã hỏi đủ {MAX_QUESTIONS} câu -> Từ chối.
         4. [[CHAT]]: Chat xã giao.
 
-        BẢO MẬT: KHÔNG tiết lộ tên trực tiếp. KHÔNG trả lời về ngoại hình (trả lời: "Dữ liệu thị giác không khả dụng").
+        BẢO MẬT: KHÔNG trả lời về ngoại hình.
         """
 
         messages_payload = [{"role": "system", "content": system_instruction}]
