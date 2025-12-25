@@ -14,7 +14,7 @@ import base64
 try:
     FIXED_GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 except:
-    # Thay API Key thật của bạn vào đây
+    # Thay API Key thật của bạn vào đây nếu chạy local
     FIXED_GROQ_API_KEY = "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" 
 
 FIXED_CSV_PATH = "res.csv"
@@ -55,7 +55,6 @@ def init_log_system():
     if os.path.exists(LOG_FILE_PATH):
         try:
             df = pd.read_csv(LOG_FILE_PATH)
-            # Nếu file log cũ không có cột TIMESTAMP -> Xóa tạo lại
             if "TIMESTAMP" not in df.columns:
                 reset_needed = True
         except:
@@ -67,7 +66,6 @@ def init_log_system():
         with open(LOG_FILE_PATH, mode='w', newline='', encoding='utf-8') as f:
             csv.writer(f).writerow(header)
 
-# Gọi hàm fix log ngay lập tức
 init_log_system()
 
 def log_activity(user_name, action):
@@ -116,10 +114,9 @@ def load_data(filepath):
         return []
 
 # ==============================================================================
-# 3. GIAO DIỆN TERMINAL (ĐÃ ADD MATERIAL ICONS)
+# 3. GIAO DIỆN TERMINAL (CLEAN CSS - NO EXTERNAL FONTS)
 # ==============================================================================
 st.markdown("""
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
 
@@ -142,12 +139,6 @@ st.markdown("""
     h1, h2, h3, p, div, span, label, .stMarkdown { 
         font-family: 'Fira Code', monospace !important; 
         color: #33FF33 !important; 
-    }
-
-    /* CHỈNH SIZE ICON CHO KHỚP VỚI TEXT */
-    .material-icons {
-        font-size: 24px;
-        vertical-align: bottom;
     }
     
     .stTextInput input { 
@@ -202,7 +193,7 @@ if "game_status" not in st.session_state: st.session_state.game_status = "PLAYIN
 # 5. MÀN HÌNH ĐĂNG NHẬP
 # ==============================================================================
 if st.session_state.user_info is None and not st.session_state.is_admin:
-    st.markdown("<h1 style='text-align:center;'><span class='material-icons'>lock</span> CLASSIFIED ACCESS</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'>🔒 CLASSIFIED ACCESS</h1>", unsafe_allow_html=True)
     st.markdown("<div style='text-align: center; margin-bottom: 20px;'>PROJECT: SECRET SANTA PROTOCOL</div>", unsafe_allow_html=True)
     
     if shared_state.status == "WAITING":
@@ -215,7 +206,7 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
     profiles = load_data(FIXED_CSV_PATH)
 
     with st.form("auth_form"):
-        st.markdown("<label><span class='material-icons'>badge</span> ENTER AGENT ID OR CODENAME:</label>", unsafe_allow_html=True)
+        st.markdown("<label>🪪 ENTER AGENT ID OR CODENAME:</label>", unsafe_allow_html=True)
         user_input = st.text_input("", placeholder="Example: 250231") 
         
         submitted = st.form_submit_button("AUTHENTICATE", type="primary")
@@ -244,14 +235,14 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
                         
                         if not has_lost: log_activity(selected_user['user_name'], "LOGIN_SUCCESS")
                         
-                        # --- WELCOME MESSAGE ---
+                        # --- WELCOME MESSAGE WITH EMOJIS ---
                         welcome_msg = f"""
-                        <span class='material-icons'>verified</span> **XÁC THỰC THÀNH CÔNG.**
+                        ✅ **XÁC THỰC THÀNH CÔNG.**
                         
                         Xin chào điệp viên: **{selected_user['user_name']}**.
                         Dữ liệu mục tiêu đã được tải xuống bộ nhớ đệm.
 
-                        <span class='material-icons'>warning</span> **QUY TẮC NHIỆM VỤ:**
+                        ⚠️ **QUY TẮC NHIỆM VỤ:**
                         1. Bạn có **{MAX_QUESTIONS} truy vấn** (câu hỏi).
                         2. Phạm vi sai số cho phép: **{MAX_LIVES} lần**.
                         3. Thời gian kết nối: Theo dõi đồng hồ đếm ngược.
@@ -269,7 +260,7 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
 # 6. ADMIN CONTROL CENTER
 # ==============================================================================
 if st.session_state.is_admin:
-    st.markdown("<h1 style='text-align:center;'><span class='material-icons'>admin_panel_settings</span> COMMAND CENTER</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'>🛡️ COMMAND CENTER</h1>", unsafe_allow_html=True)
     st.markdown(f"<div style='text-align: center'>STATUS: <b>{shared_state.status}</b></div>", unsafe_allow_html=True)
     st.divider()
     
@@ -293,7 +284,7 @@ if st.session_state.is_admin:
     if shared_state.end_timestamp > 0:
         remain = max(0, int(shared_state.end_timestamp - time.time()))
         m, s = divmod(remain, 60)
-        st.markdown(f"<h1 style='color: #FF0000 !important; text-align: center;'>T-MINUS: {m:02d}:{s:02d}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='color: #FF0000 !important; text-align: center;'>⏳ T-MINUS: {m:02d}:{s:02d}</h1>", unsafe_allow_html=True)
 
     st.divider()
     if st.button("RETURN TO FIELD"):
@@ -308,7 +299,7 @@ if st.session_state.is_admin:
                 if "TIMESTAMP" in df_log.columns:
                     st.dataframe(df_log.sort_values(by="TIMESTAMP", ascending=False), use_container_width=True)
                 else:
-                    st.warning("Old log format detected. Purging recommended.")
+                    st.warning("Old log format detected.")
                     st.dataframe(df_log, use_container_width=True)
             except Exception as e:
                 st.error(f"Log Read Error: {e}")
@@ -342,16 +333,15 @@ if not is_vip and shared_state.status != "RUNNING":
 
 target_gender = get_gender(user['santa_name'])
 
-st.markdown("<h2 style='text-align:center;'><span class='material-icons'>dashboard</span> MISSION DASHBOARD</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center;'>📊 MISSION DASHBOARD</h2>", unsafe_allow_html=True)
 
-# --- SPY HUD (FIXED ICONS) ---
+# --- SPY HUD (EMOJI EDITION) ---
 q_left = max(0, MAX_QUESTIONS - st.session_state.question_count)
 l_left = MAX_LIVES - st.session_state.wrong_guesses
 end_ts_js = shared_state.end_timestamp
 
-# Quan trọng: Thêm link CSS vào html của Dashboard để hiện icon
+# Sử dụng thuần Emoji trong HTML, không cần load font
 dashboard_html = f"""
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <style>
     body {{ margin: 0; font-family: 'Fira Code', monospace; }}
     .hud-container {{
@@ -365,30 +355,23 @@ dashboard_html = f"""
     }}
     .stat-box {{ text-align: center; width: 30%; }}
     .label {{ color: #00AA00; font-size: 10px; margin-bottom: 5px; }}
-    .value {{ font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; }}
-    .material-icons {{ font-size: 20px; }}
+    .value {{ font-size: 24px; font-weight: bold; }}
 </style>
 
 <div class="hud-container">
     <div class="stat-box">
         <div class="label">QUERIES</div>
-        <div class="value">
-            <span class="material-icons">help_outline</span> {q_left}<span style="font-size:12px">/{MAX_QUESTIONS}</span>
-        </div>
+        <div class="value">❓ {q_left}<span style="font-size:12px">/{MAX_QUESTIONS}</span></div>
     </div>
     
     <div class="stat-box" style="border-left: 1px dashed #005500; border-right: 1px dashed #005500; width: 40%;">
         <div class="label">T-MINUS</div>
-        <div class="value" id="countdown_timer">
-            <span class="material-icons">timer</span> SYNC...
-        </div>
+        <div class="value" id="countdown_timer">⏳ SYNC...</div>
     </div>
 
     <div class="stat-box">
         <div class="label">LIVES</div>
-        <div class="value" style="color: #FF0000;">
-            <span class="material-icons">favorite</span> {l_left}<span style="font-size:12px">/{MAX_LIVES}</span>
-        </div>
+        <div class="value" style="color: #FF0000;">❤️ {l_left}<span style="font-size:12px">/{MAX_LIVES}</span></div>
     </div>
 </div>
 
@@ -400,7 +383,7 @@ dashboard_html = f"""
         var el = document.getElementById("countdown_timer");
         
         if (diff <= 0) {{
-            el.innerHTML = "<span class='material-icons'>warning</span> 00:00";
+            el.innerHTML = "⚠️ 00:00";
             el.style.color = "red";
             return;
         }}
@@ -408,7 +391,7 @@ dashboard_html = f"""
         var m = Math.floor(diff / 60);
         var s = Math.floor(diff % 60);
         var display = (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
-        el.innerHTML = "<span class='material-icons'>timer</span> " + display;
+        el.innerHTML = "⏱️ " + display;
     }}
     setInterval(updateTimer, 1000);
     updateTimer();
@@ -418,7 +401,7 @@ components.html(dashboard_html, height=85)
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown(f"<div style='border: 1px solid #33FF33; padding: 10px; text-align: center;'><span class='material-icons'>face</span> AGENT: {user['user_name']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='border: 1px solid #33FF33; padding: 10px; text-align: center;'>🆔 AGENT: {user['user_name']}</div>", unsafe_allow_html=True)
     if user['user_id'] in ADMIN_IDS:
         st.write("")
         if st.button("⚙️ ADMIN PANEL"):
@@ -516,4 +499,3 @@ if prompt := st.chat_input("Enter query command..."):
                 st.rerun()
 
     except Exception as e: st.error(f"SYSTEM ERROR: {e}")
-
