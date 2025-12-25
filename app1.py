@@ -14,6 +14,7 @@ import base64
 try:
     FIXED_GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 except:
+    # Thay API Key của bạn vào đây nếu chạy local
     FIXED_GROQ_API_KEY = "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" 
 
 FIXED_CSV_PATH = "res.csv"
@@ -45,13 +46,37 @@ def get_shared_state():
 shared_state = get_shared_state()
 
 # ==============================================================================
-# 2. UTILS
+# 2. UTILS & LOGIC (ĐÃ FIX LỖI DATA)
 # ==============================================================================
+
+# --- HÀM MỚI: TỰ ĐỘNG KHỞI TẠO FILE LOG NẾU SAI FORMAT ---
+def init_log_system():
+    header = ["TIMESTAMP", "AGENT", "ACTION"]
+    reset_needed = False
+    
+    if os.path.exists(LOG_FILE_PATH):
+        try:
+            df = pd.read_csv(LOG_FILE_PATH)
+            # Nếu file cũ dùng tiếng Việt (Thời gian) -> Xóa tạo lại
+            if "TIMESTAMP" not in df.columns:
+                reset_needed = True
+        except:
+            reset_needed = True
+    else:
+        reset_needed = True
+
+    if reset_needed:
+        with open(LOG_FILE_PATH, mode='w', newline='', encoding='utf-8') as f:
+            csv.writer(f).writerow(header)
+
+# Gọi hàm này ngay khi chạy app
+init_log_system()
+
 def log_activity(user_name, action):
     time_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if not os.path.exists(LOG_FILE_PATH):
-        with open(LOG_FILE_PATH, mode='w', newline='', encoding='utf-8') as f:
-            csv.writer(f).writerow(["TIMESTAMP", "AGENT", "ACTION"])
+    # Đảm bảo file tồn tại trước khi ghi
+    if not os.path.exists(LOG_FILE_PATH): init_log_system()
+    
     with open(LOG_FILE_PATH, mode='a', newline='', encoding='utf-8') as f:
         csv.writer(f).writerow([time_now, user_name, action])
 
@@ -59,9 +84,13 @@ def check_if_lost(user_name):
     if not os.path.exists(LOG_FILE_PATH): return False
     try:
         df = pd.read_csv(LOG_FILE_PATH)
-        losers = df[df['ACTION'] == 'TERMINATED']['AGENT'].unique()
-        return user_name in losers
-    except: return False
+        # Fix lỗi KeyError: Kiểm tra xem cột ACTION có tồn tại không
+        if 'ACTION' in df.columns and 'AGENT' in df.columns:
+            losers = df[df['ACTION'] == 'TERMINATED']['AGENT'].unique()
+            return user_name in losers
+        return False
+    except Exception: 
+        return False
 
 def get_gender(name):
     for female in FEMALE_NAMES:
@@ -95,84 +124,63 @@ def load_data(filepath):
 # ==============================================================================
 st.markdown("""
 <style>
-    /* NHÚNG FONT CODE */
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
 
-    /* NỀN TỔNG THỂ */
     .stApp {
-        background-color: #0d0d0d;
-        background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 0, .03) 25%, rgba(0, 255, 0, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .03) 75%, rgba(0, 255, 0, .03) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 0, .03) 25%, rgba(0, 255, 0, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .03) 75%, rgba(0, 255, 0, .03) 76%, transparent 77%, transparent);
-        background-size: 50px 50px;
+        background-color: #050505;
+        background-image: linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+        background-size: 20px 20px;
     }
 
-    /* KHUNG CHÍNH - CRT SCREEN STYLE */
     .main .block-container { 
         background-color: rgba(10, 15, 10, 0.95) !important; 
         padding: 30px !important; 
-        border: 2px solid #00FF00; 
-        box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+        border: 1px solid #33FF33; 
+        box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
         max-width: 800px; 
         font-family: 'Fira Code', monospace;
     }
     
-    /* TYPOGRAPHY - HACKER STYLE */
-    h1, h2, h3, p, div, span, label { 
+    h1, h2, h3, p, div, span, label, .stMarkdown { 
         font-family: 'Fira Code', monospace !important; 
-        color: #00FF00 !important; /* Green Terminal */
-        text-shadow: 0 0 2px #003300;
+        color: #33FF33 !important; 
     }
     
-    h1 { 
-        text-align: center; 
-        text-transform: uppercase; 
-        border-bottom: 2px dashed #00FF00;
-        padding-bottom: 10px;
-    }
-
-    /* INPUT FIELDS */
     .stTextInput input { 
         background-color: #001100 !important; 
-        color: #00FF00 !important; 
-        border: 1px solid #00FF00 !important;
-        font-family: 'Fira Code', monospace !important; 
+        color: #33FF33 !important; 
+        border: 1px solid #33FF33 !important;
         text-align: center;
     }
     
-    /* BUTTONS */
     div.stButton > button {
-        background-color: #003300 !important;
-        color: #00FF00 !important;
-        border: 1px solid #00FF00 !important;
-        font-family: 'Fira Code', monospace !important;
-        width: 100%;
+        background-color: #002200 !important;
+        color: #33FF33 !important;
+        border: 1px solid #33FF33 !important;
+        font-weight: bold;
     }
     div.stButton > button:hover {
-        background-color: #00FF00 !important;
+        background-color: #33FF33 !important;
         color: #000000 !important;
-        box-shadow: 0 0 10px #00FF00;
     }
 
-    /* CHAT BUBBLES - TERMINAL STYLE */
+    /* CHAT BUBBLES */
     div[data-testid="user-message"] { 
         background-color: #002200 !important; 
-        border-left: 3px solid #00FF00;
-        color: #00FF00 !important;
-        font-family: 'Fira Code', monospace;
+        border-left: 3px solid #33FF33;
+        color: #33FF33 !important;
+        padding: 10px;
     }
     div[data-testid="assistant-message"] { 
         background-color: #000000 !important; 
-        border: 1px dashed #00FF00;
-        color: #00FF00 !important;
-        font-family: 'Fira Code', monospace;
+        border: 1px dashed #33FF33;
+        color: #33FF33 !important;
+        padding: 10px;
     }
     
-    /* COUNTDOWN & METRICS */
-    .hud-box {
-        border: 1px solid #00FF00;
-        background: #001a00;
-        padding: 10px;
-        text-align: center;
-    }
+    /* ICON FIX */
+    .material-icons { font-size: 16px !important; vertical-align: middle; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -185,16 +193,14 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 if "question_count" not in st.session_state: st.session_state.question_count = 0 
 if "wrong_guesses" not in st.session_state: st.session_state.wrong_guesses = 0  
 if "game_status" not in st.session_state: st.session_state.game_status = "PLAYING"
-if "boot_sequence_done" not in st.session_state: st.session_state.boot_sequence_done = False
 
 # ==============================================================================
-# 5. MÀN HÌNH ĐĂNG NHẬP (AUTHENTICATION)
+# 5. MÀN HÌNH ĐĂNG NHẬP
 # ==============================================================================
 if st.session_state.user_info is None and not st.session_state.is_admin:
     st.title("🔒 CLASSIFIED ACCESS")
     st.markdown("<div style='text-align: center; margin-bottom: 20px;'>PROJECT: SECRET SANTA PROTOCOL</div>", unsafe_allow_html=True)
     
-    # STATUS CHECK
     if shared_state.status == "WAITING":
         st.info(">>> SYSTEM STATUS: STANDBY (WAITING FOR ADMIN)")
     elif shared_state.status == "ENDED":
@@ -226,29 +232,14 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
                     if not is_admin_user and has_lost:
                         st.error(">>> ACCESS DENIED: AGENT TERMINATED PREVIOUSLY.")
                     else:
-                        # --- HIỆU ỨNG KHỞI ĐỘNG HỆ THỐNG ---
-                        placeholder = st.empty()
-                        with placeholder.container():
-                            st.write("❄️ INITIALIZING NORTH POLE MAINFRAME (NPLM v2025)...")
-                            time.sleep(0.5)
-                            st.write(">>> CONNECTING TO 'NAUGHTY OR NICE' DATABASE...")
-                            time.sleep(0.5)
-                            st.write(">>> DECRYPTING GIFT ASSIGNMENT...")
-                            time.sleep(0.5)
-                            st.success(">>> ACCESS GRANTED.")
-                            time.sleep(0.8)
-                        
-                        # LOGIN STATE
                         st.session_state.user_info = selected_user
                         st.session_state.question_count = 0
                         st.session_state.wrong_guesses = 0
                         st.session_state.game_status = "PLAYING"
                         st.session_state.messages = []
-                        st.session_state.boot_sequence_done = True
                         
                         if not has_lost: log_activity(selected_user['user_name'], "LOGIN_SUCCESS")
                         
-                        # TIN NHẮN ĐẦU TIÊN TỪ HỆ THỐNG
                         welcome_msg = f"✅ **XÁC THỰC THÀNH CÔNG.**\n\nXin chào điệp viên: **{selected_user['user_name']}**.\nDữ liệu mục tiêu đã được tải.\n\n⚠️ **QUY TẮC NHIỆM VỤ:**\n1. Bạn có **{MAX_QUESTIONS} truy vấn** (câu hỏi).\n2. Phạm vi sai số cho phép: **{MAX_LIVES} lần**.\n3. Thời gian kết nối an toàn: Theo dõi đồng hồ đếm ngược.\n\nNhập truy vấn để bắt đầu thu thập manh mối."
                         st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
                         st.rerun()
@@ -260,7 +251,7 @@ if st.session_state.user_info is None and not st.session_state.is_admin:
     st.stop()
 
 # ==============================================================================
-# 6. ADMIN CONTROL CENTER
+# 6. ADMIN CONTROL CENTER (ĐÃ FIX KEYERROR)
 # ==============================================================================
 if st.session_state.is_admin:
     st.title("🛡️ COMMAND CENTER")
@@ -294,17 +285,27 @@ if st.session_state.is_admin:
         st.session_state.is_admin = False
         st.rerun()
 
+    # --- FIX HIỂN THỊ LOG ---
     if os.path.exists(LOG_FILE_PATH):
         with st.expander(">> ACCESS SYSTEM LOGS"):
-            df_log = pd.read_csv(LOG_FILE_PATH)
-            st.dataframe(df_log.sort_values(by="TIMESTAMP", ascending=False), use_container_width=True)
+            try:
+                df_log = pd.read_csv(LOG_FILE_PATH)
+                if "TIMESTAMP" in df_log.columns:
+                    st.dataframe(df_log.sort_values(by="TIMESTAMP", ascending=False), use_container_width=True)
+                else:
+                    st.warning("Old log format detected. Please Purge Logs.")
+                    st.dataframe(df_log, use_container_width=True)
+            except Exception as e:
+                st.error(f"Log Read Error: {e}")
+
         if st.button("PURGE LOGS"): 
             os.remove(LOG_FILE_PATH)
+            init_log_system() # Tạo lại file mới ngay lập tức
             st.rerun()
     st.stop()
 
 # ==============================================================================
-# 7. MAIN MISSION INTERFACE (HUD & CHAT)
+# 7. MAIN MISSION INTERFACE
 # ==============================================================================
 user = st.session_state.user_info
 is_vip = user['user_id'] in ADMIN_IDS
@@ -328,35 +329,34 @@ target_gender = get_gender(user['santa_name'])
 
 st.title("🕵️ MISSION DASHBOARD")
 
-# --- SPY HUD (HEADS-UP DISPLAY) ---
+# --- SPY HUD ---
 q_left = max(0, MAX_QUESTIONS - st.session_state.question_count)
 l_left = MAX_LIVES - st.session_state.wrong_guesses
 end_ts_js = shared_state.end_timestamp
 
-# Giao diện HUD style Terminal
 dashboard_html = f"""
 <div style="
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
     background-color: #000; 
-    border: 1px solid #00FF00; 
+    border: 1px solid #33FF33; 
     padding: 10px; 
     margin-bottom: 20px;
     font-family: 'Fira Code', monospace;
 ">
     <div style="text-align: center; width: 30%;">
-        <div style="color: #00AA00; font-size: 10px;">QUERIES REMAINING</div>
-        <div style="color: #00FF00; font-size: 24px; font-weight: bold;">{q_left}<span style="font-size:12px">/{MAX_QUESTIONS}</span></div>
+        <div style="color: #00AA00; font-size: 10px;">QUERIES</div>
+        <div style="color: #33FF33; font-size: 24px; font-weight: bold;">{q_left}<span style="font-size:12px">/{MAX_QUESTIONS}</span></div>
     </div>
     
     <div style="text-align: center; width: 38%; border-left: 1px dashed #005500; border-right: 1px dashed #005500;">
-        <div style="color: #00AA00; font-size: 10px;">TIME REMAINING</div>
-        <div id="countdown_timer" style="color: #00FF00; font-size: 24px; font-weight: bold;">SYNC...</div>
+        <div style="color: #00AA00; font-size: 10px;">T-MINUS</div>
+        <div id="countdown_timer" style="color: #33FF33; font-size: 24px; font-weight: bold;">SYNC...</div>
     </div>
 
     <div style="text-align: center; width: 30%;">
-        <div style="color: #00AA00; font-size: 10px;">LIVES (TRIES)</div>
+        <div style="color: #00AA00; font-size: 10px;">LIVES</div>
         <div style="color: #FF0000; font-size: 24px; font-weight: bold;">{l_left}<span style="font-size:12px">/{MAX_LIVES}</span></div>
     </div>
 </div>
@@ -378,13 +378,6 @@ dashboard_html = f"""
         var s = Math.floor(diff % 60);
         var display = (m<10?"0"+m:m) + ":" + (s<10?"0"+s:s);
         el.innerHTML = display;
-        
-        // Blink effect when low time
-        if (diff < 30 && Math.floor(now) % 2 == 0) {{
-            el.style.opacity = "0.5";
-        }} else {{
-            el.style.opacity = "1";
-        }}
     }}
     setInterval(updateTimer, 1000);
     updateTimer();
@@ -394,14 +387,14 @@ components.html(dashboard_html, height=85)
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown(f"<div style='border: 1px solid #00FF00; padding: 10px; text-align: center;'>AGENT: {user['user_name']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='border: 1px solid #33FF33; padding: 10px; text-align: center;'>AGENT: {user['user_name']}</div>", unsafe_allow_html=True)
     if user['user_id'] in ADMIN_IDS:
         st.write("")
         if st.button("⚙️ ADMIN PANEL"):
             st.session_state.is_admin = True
             st.rerun()
     st.divider()
-    if st.button("🛑 ABORT MISSION (LOGOUT)"):
+    if st.button("🛑 ABORT MISSION"):
          st.session_state.user_info = None
          st.rerun()
 
@@ -410,7 +403,7 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# CHECK END CONDITIONS
+# CHECK END
 if st.session_state.game_status == "LOST":
     st.error("❌ MISSION FAILED: AGENT TERMINATED.")
     st.markdown(f"**TARGET IDENTITY REVEALED:** {user['santa_name']}")
@@ -430,7 +423,6 @@ if prompt := st.chat_input("Enter query command..."):
     try:
         client = Groq(api_key=FIXED_GROQ_API_KEY)
         
-        # --- SPY / MAINFRAME PERSONA ---
         system_instruction = f"""
         BỐI CẢNH (BACKGROUND):
         Bạn là NPLM (North Pole Logistics Mainframe) - Hệ thống Máy chủ Bắc Cực.
@@ -444,18 +436,13 @@ if prompt := st.chat_input("Enter query command..."):
         - Số truy vấn đã dùng: {st.session_state.question_count}/{MAX_QUESTIONS}.
         - Số lần vi phạm (đoán sai): {st.session_state.wrong_guesses}/{MAX_LIVES}.
 
-        GIAO THỨC TRẢ LỜI (BẮT BUỘC TUÂN THỦ):
-        1. [[WIN]]: Nếu user đoán ĐÚNG CẢ HỌ VÀ TÊN của Mục tiêu.
-        2. [[WRONG]]: Nếu user đoán tên cụ thể mà SAI.
-        3. [[OK]]: Nếu user hỏi gợi ý thông tin (MSHS, tên đệm, lớp...).
-           - Nếu đã hỏi đủ {MAX_QUESTIONS} câu -> TRẢ LỜI: "Hết lượt truy vấn dữ liệu. Bắt buộc nhập tên định danh mục tiêu để xác thực." (Không kèm tag [[OK]]).
-        4. [[CHAT]]: Chat xã giao không liên quan đến game.
+        GIAO THỨC TRẢ LỜI:
+        1. [[WIN]]: User đoán ĐÚNG CẢ HỌ VÀ TÊN.
+        2. [[WRONG]]: User đoán tên SAI.
+        3. [[OK]]: User hỏi gợi ý. Nếu đã hỏi đủ {MAX_QUESTIONS} câu -> Từ chối, bắt đoán tên.
+        4. [[CHAT]]: Chat xã giao.
 
-        QUY TẮC BẢO MẬT DỮ LIỆU (QUAN TRỌNG):
-        - **KHÔNG CÓ DỮ LIỆU HÌNH ẢNH**: Nếu user hỏi về ngoại hình (cao, thấp, béo, gầy, kính, tóc...), BẮT BUỘC TRẢ LỜI: "Lỗi truy xuất: Hệ thống không lưu trữ dữ liệu thị giác."
-        - **CÂU TRẢ LỜI NGẮN GỌN**: Dùng style máy tính (Ví dụ: "Khẳng định.", "Phủ định.", "Dữ liệu không trùng khớp.", "Thông tin chính xác.").
-
-        Đừng bao giờ tiết lộ trực tiếp tên Mục tiêu trừ khi họ đoán đúng.
+        BẢO MẬT: KHÔNG tiết lộ tên trực tiếp. KHÔNG trả lời về ngoại hình (trả lời: "Dữ liệu thị giác không khả dụng").
         """
 
         messages_payload = [{"role": "system", "content": system_instruction}]
@@ -464,22 +451,17 @@ if prompt := st.chat_input("Enter query command..."):
         with st.chat_message("assistant"):
             container = st.empty()
             full_res = ""
-            
-            # Streaming effect is vital for "Typewriter" look
             stream = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages_payload, stream=True)
             
             for chunk in stream:
                 if chunk.choices[0].delta.content:
-                    text_chunk = chunk.choices[0].delta.content
-                    full_res += text_chunk
-                    # Clean tags for display
-                    clean_display = full_res.replace("[[WIN]]","").replace("[[WRONG]]","").replace("[[OK]]","").replace("[[CHAT]]","")
-                    container.markdown(clean_display + " █") # Cursor effect
+                    full_res += chunk.choices[0].delta.content
+                    clean = full_res.replace("[[WIN]]","").replace("[[WRONG]]","").replace("[[OK]]","").replace("[[CHAT]]","")
+                    container.markdown(clean + " █") 
             
             final_content = full_res
             action = None
             
-            # Logic check tags
             if "[[WIN]]" in full_res:
                 st.session_state.game_status = "WON"
                 log_activity(user['user_name'], "MISSION_COMPLETE")
@@ -499,17 +481,14 @@ if prompt := st.chat_input("Enter query command..."):
                     st.session_state.question_count += 1
                     final_content = full_res.replace("[[OK]]", "")
                     action = "OK"
-                else: 
-                    # Trường hợp AI quên luật hết câu hỏi, mình force lại
-                    final_content = ">>> CẢNH BÁO: Hết lượt truy vấn. Yêu cầu nhập tên định danh để kết thúc nhiệm vụ."
-            else: 
-                final_content = full_res.replace("[[CHAT]]", "")
+                else: final_content = ">>> ALERT: QUERY LIMIT REACHED. IDENTIFY TARGET NOW."
+            else: final_content = full_res.replace("[[CHAT]]", "")
 
-            container.markdown(final_content) # Final render without cursor
+            container.markdown(final_content)
             st.session_state.messages.append({"role": "assistant", "content": final_content})
             
             if action: 
-                time.sleep(1.5) # Chờ xíu cho user đọc
+                time.sleep(1.5)
                 st.rerun()
 
     except Exception as e: st.error(f"SYSTEM ERROR: {e}")
